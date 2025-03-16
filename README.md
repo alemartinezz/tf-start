@@ -1,84 +1,44 @@
-# Terraform AWS Backend Setup
+**Bootstrap Environment**  
+- In `/env/bootstrap/main.tf`, a local backend is used to create the S3 bucket and DynamoDB table once.  
+- The `bootstrap.tfvars` file provides values (like `project_name`, `account_id`, `iam_user`) to provision these backend resources.  
+- After applying, the bucket and table are available for remote state storage.
 
-This project provides a kickstarter for setting up a Terraform backend using AWS services (S3 and DynamoDB) for managing state files and locking.
+**Dev, Stg, and Prod Environments**  
+- Each environment’s `main.tf` configures a remote S3 backend pointing to the same bucket and table, using a unique key (e.g., `dev/terraform.tfstate`, `stg/terraform.tfstate`, `prod/terraform.tfstate`) for state isolation.  
+- Their respective `*.tfvars` files set environment-specific variables (such as `company_name` and `app_name`).
 
-## Architecture
+**Modules**  
+- The **backend module** (in `/modules/backend`) creates the bucket and DynamoDB table and outputs their details.  
+- The **app module** (in `/modules/app`) provisions application resources (like Secrets Manager) using the provided variables.
 
-This Terraform configuration provisions:
+**Commands for Each Environment**
 
-1. **S3 Bucket** for storing the Terraform state with:
-    - Versioning enabled.
-    - AES256 encryption.
-    - Bucket policy to allow specified AWS users to access state files.
+1. **Bootstrap (one-time execution):**
+   ```bash
+   cd env/bootstrap
+   terraform init
+   terraform apply -var-file=bootstrap.tfvars
+   ```
 
-2. **DynamoDB Table** for managing state locking.
+2. **Development (dev):**
+   ```bash
+   cd env/dev
+   terraform init -var-file=dev.tfvars
+   terraform apply -var-file=dev.tfvars
+   ```
 
-## Prerequisites
+3. **Staging (stg):**
+   ```bash
+   cd env/stg
+   terraform init -var-file=stg.tfvars
+   terraform apply -var-file=stg.tfvars
+   ```
 
-### CLI Tools
+4. **Production (prod):**
+   ```bash
+   cd env/prod
+   terraform init -var-file=prod.tfvars
+   terraform apply -var-file=prod.tfvars
+   ```
 
-- [Terraform CLI](https://www.terraform.io/downloads) (>= 1.4.0)
-- [AWS CLI](https://aws.amazon.com/cli/) configured with a valid profile.
-
-### AWS CLI Configuration
-
-Ensure your AWS CLI is configured with a profile that has the necessary permissions to manage S3, DynamoDB, and IAM policies:
-
-```bash
-aws configure --profile <your-profile-name>
-```
-
-Ensure the profile has access to:
-
-- S3 (create, update, delete buckets)
-- DynamoDB (create, update, delete tables)
-- IAM (manage S3 bucket policies)
-
-## Usage
-
-### Step 1: Initialize the project
-
-Run the following command to initialize the Terraform configuration:
-
-```bash
-terraform init
-```
-
-### Step 2: Apply the configuration
-
-Run `terraform apply` to provision the resources:
-
-```bash
-terraform apply
-```
-
-### Step 3: Outputs
-
-After applying the configuration, the following outputs will be available:
-
-- **s3_bucket_id**: The ID of the S3 bucket.
-- **s3_bucket_arn**: The ARN of the S3 bucket.
-- **dynamodb_table_name**: The name of the DynamoDB table.
-
-## Customizing
-
-Modify these variables in `variables.tf` or via `terraform.tfvars`:
-
-- **aws_region**: AWS region to use.
-- **profile**: AWS CLI profile to use.
-- **project_name**: Name for tagging and naming resources.
-- **account_id**: AWS account ID.
-
-You can also pass variables via the command line:
-
-```bash
-terraform apply -var="project_name=my-project" -var="aws_region=us-east-1"
-```
-
-## Cleanup
-
-To destroy all resources created by this configuration:
-
-```bash
-terraform destroy
-```
+This setup allows a one-time bootstrap to create the backend resources, and then each environment uses the same bucket and table—with its state stored in a unique key.
